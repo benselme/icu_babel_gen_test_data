@@ -4,6 +4,7 @@ import com.ibm.icu.text.NumberFormat;
 import com.ibm.icu.util.ULocale;
 import org.json.simple.JSONObject;
 import com.ibm.icu.text.NumberingSystem;
+import com.ibm.icu.util.Currency;
 
 import java.io.FileWriter;
 import java.io.IOException;
@@ -24,6 +25,13 @@ public class Main {
         }
     }
 
+    private static JSONObject makeCurrencyData(String currencyCode, Object value) {
+        JSONObject ret = new JSONObject();
+        ret.put("currency", currencyCode);
+        ret.put("value", value);
+        return ret;
+    }
+
     private static JSONObject generateNumberFormatData() {
         ULocale[] locales = ULocale.getAvailableLocales();
         int[] styles = new int[]{NumberFormat.SCIENTIFICSTYLE, NumberFormat.CURRENCYSTYLE, NumberFormat.PERCENTSTYLE,
@@ -42,16 +50,29 @@ public class Main {
         test_data.put("locales", locales_data);
         for (ULocale loc : locales) {
             NumberingSystem numberingSystem = NumberingSystem.getInstance(loc);
-            String ns_name = numberingSystem.getName();
+            Currency currency = Currency.getInstance(loc);
+            String currencyCode;
+            if (currency != null) {
+                currencyCode = currency.getCurrencyCode();
+            } else {
+                currencyCode = null;
+            }
             if (numberingSystem.getName().equals("latn")) {
                 JSONObject locale_data = new JSONObject();
                 locales_data.put(loc.getName(), locale_data);
                 for (int style : styles) {
                     NumberFormat nf = NumberFormat.getInstance(loc, style);
                     JSONObject style_data = new JSONObject();
-                    style_data.put(BIG_DEC, nf.format(bd));
-                    style_data.put(DOUBLE, nf.format(db));
-                    style_data.put(INT, nf.format(in));
+                    if (style != NumberFormat.CURRENCYSTYLE) {
+                        style_data.put(BIG_DEC, nf.format(bd));
+                        style_data.put(DOUBLE, nf.format(db));
+                        style_data.put(INT, nf.format(in));
+                    } else {
+                        if (currencyCode == null) continue;
+                        style_data.put(BIG_DEC, makeCurrencyData(currencyCode, nf.format(bd)));
+                        style_data.put(DOUBLE, makeCurrencyData(currencyCode, nf.format(db)));
+                        style_data.put(INT, makeCurrencyData(currencyCode, nf.format(in)));
+                    }
                     locale_data.put(style, style_data);
                 }
             }
